@@ -1,6 +1,6 @@
 # Petersson-Frisch Dispersion Model
 
-Contains python scripts to compute the Petersson-Frisch dispersion (PFD) model. This code reproduces the PFD two-body and three-body dispersions and hydrogen bonding corrections modeled  in Gaussian 16 Revision C.01. This code will be used n the future for BEBOP to calculate van der Waals interactions. 
+It contains Python scripts to compute the Petersson-Frisch dispersion (PFD) model. This code reproduces the PFD two-body and three-body dispersions and hydrogen bonding corrections modeled in Gaussian 16 Revision C.01. This code will be used for future BEBOP calculations involving van der Waals interactions. 
 
 ## Installation
 

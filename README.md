@@ -134,15 +134,15 @@ The PFD model computes dispersion corrections as the sum of three terms:
 
 **Two-body dispersion:**
 
-$$E_\text{2body} = -\sum_{i<j} \frac{C_6^{ij} \cdot f^2(r_{ij})}{(r_{ij}^2 - r_s^2)^3}$$
+$$E_{\mathrm{2body}} = -\sum_{i<j} \frac{C_6^{ij} \cdot f^2(r_{ij})}{(r_{ij}^2 - r_s^2)^3}$$
 
 **Three-body dispersion (Axilrod-Teller-Muto):**
 
-$$E_\text{3body} = -\sum_{i<j<k} \frac{C_9^{ijk} \cdot (3\cos\theta_i \cos\theta_j \cos\theta_k + 1) \cdot f^2(r_{ij}) f^2(r_{ik}) f^2(r_{jk})}{(r_{ij} \, r_{ik} \, r_{jk})^3}$$
+$$E_{\mathrm{3body}} = -\sum_{i<j<k} \frac{C_9^{ijk} \cdot (3\cos\theta_i \cos\theta_j \cos\theta_k + 1) \cdot f^2(r_{ij}) f^2(r_{ik}) f^2(r_{jk})}{(r_{ij} \cdot r_{ik} \cdot r_{jk})^3}$$
 
 **Hydrogen bond correction:**
 
-$$E_\text{H-bond} = \sum_{\text{X-H}\cdots\text{Y}} E_\text{2body}^{XY} \cdot g(\theta_\text{XHY})$$
+$$E_{\mathrm{Hbond}} = \sum_{\mathrm{X{\text{-}}H \cdots Y}} E_{\mathrm{2body}}^{XY} \cdot g(\theta_{\mathrm{XHY}})$$
 
 where:
 - $f(r)$ is a damping function that smoothly attenuates dispersion at short range

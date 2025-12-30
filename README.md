@@ -128,30 +128,6 @@ pfd/
 pfd_calculator.py     # Command-line interface
 ```
 
-## Theory
-
-The PFD model computes dispersion corrections as the sum of three terms:
-
-**Two-body dispersion:**
-
-<p align="center">
-E<sub>2body</sub> = −Σ<sub>i&lt;j</sub> C<sub>6</sub><sup>ij</sup> · f²(r<sub>ij</sub>) / (r<sub>ij</sub>² − r<sub>s</sub>²)³
-</p>
-
-**Three-body dispersion (Axilrod-Teller-Muto):**
-
-<p align="center">
-E<sub>3body</sub> = −Σ<sub>i&lt;j&lt;k</sub> C<sub>9</sub><sup>ijk</sup> · (3·cos θ<sub>i</sub> cos θ<sub>j</sub> cos θ<sub>k</sub> + 1) · f²(r<sub>ij</sub>) f²(r<sub>ik</sub>) f²(r<sub>jk</sub>) / (r<sub>ij</sub> · r<sub>ik</sub> · r<sub>jk</sub>)³
-</p>
-
-**Hydrogen bond correction:**
-
-<p align="center">
-E<sub>Hbond</sub> = Σ<sub>X−H···Y</sub> E<sub>2body</sub><sup>XY</sup> · g(θ<sub>XHY</sub>)
-</p>
-
-where *f(r)* is a damping function that smoothly attenuates dispersion at short range, *g(θ)* is an angular switching function for H-bond geometries, and C₆ and C₉ are computed from atomic polarizabilities and HOMO energies.
-
 ## Supported Elements
 
 Parameterized for H–Rn (Z = 1–86) with element-specific HOMO energies and polarizabilities.

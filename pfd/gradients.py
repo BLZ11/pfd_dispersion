@@ -4,17 +4,6 @@ PFD Gradients Module
 
 This module computes analytical gradients (forces) of the PFD dispersion energy.
 
-Overview for Non-Specialists
-----------------------------
-In molecular simulations, we often need to know not just the energy of a system,
-but also how the energy changes when atoms move. This "rate of change" is the
-gradient, and its negative gives the force on each atom:
-
-    Force = -∇E = -(∂E/∂x, ∂E/∂y, ∂E/∂z)
-
-Forces tell us which direction atoms would move to lower the energy, which is
-essential for geometry optimization and molecular dynamics simulations.
-
 Mathematical Background
 -----------------------
 

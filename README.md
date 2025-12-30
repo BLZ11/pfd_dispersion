@@ -149,7 +149,7 @@ If you use this code, please cite:
 > G. A. Petersson, M. J. Frisch, F. Dobek, and B. Zulueta,
 > "Three-Body Dispersion Corrections to the Spherical Atom Model: The PFD-3B Density Functional,"
 > *J. Phys. Chem. A* **124**, 10296–10311 (2020).
-> [DOI: 10.1021/acs.jpca.0c08976](https://doi.org/10.1021/acs.jpca.0c08976)
+> [DOI: 10.1021/acs.jpca.0c08976](https://doi.org/10.1021/acs.jpca.0c05940)
 
 ## License
 

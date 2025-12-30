@@ -3,6 +3,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![NumPy](https://img.shields.io/badge/numpy-%23013243.svg?logo=numpy&logoColor=white)](https://numpy.org/)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)]()
 
 A Python implementation of the Petersson-Frisch Dispersion (PFD) model for computing two-body and three-body dispersion energies with hydrogen bond corrections, as described in the PFD-3B exchange-correlation functional.
 

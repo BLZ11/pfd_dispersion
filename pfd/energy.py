@@ -215,7 +215,7 @@ def compute_hbond_energy(num_atoms: int, z: np.ndarray, coords: np.ndarray,
         cos_h = {'i': tri.cos_i, 'j': tri.cos_j, 'k': tri.cos_k}[h_vertex]
         
         lo, hi = (acc1, acc2) if acc1 < acc2 else (acc2, acc1)
-        hb_f, _ = hbond_angular_factor(cos_h, p)
+        hb_f, _, _ = hbond_angular_factor(cos_h, p)
         if z[acc1] == 34 or z[acc2] == 34:  # Se reduction
             hb_f /= 2.0
         energy += pair_e[lo, hi] * hb_f

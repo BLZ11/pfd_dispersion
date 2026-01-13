@@ -451,15 +451,15 @@ def compute_c9(ehomo_i: float, ehomo_j: float, ehomo_k: float,
 # Hydrogen Bond Functions
 # =============================================================================
 
-def hbond_angular_factor(cos_angle: float, p: PFDParams) -> Tuple[float, float]:
+def hbond_angular_factor(cos_angle: float, p: PFDParams) -> Tuple[float, float, float]:
     """
-    Compute the hydrogen bond angular correction factor.
+    Compute the hydrogen bond angular correction factor and its derivatives.
     
     In H-X···Y systems, the dispersion between acceptors X and Y is modified
     by an angular-dependent factor based on the X-H-Y angle.
     
     The switching function is:
-        f(θ) = strength · (1 + tanh(ρ)) / 2
+        g(θ) = strength · (1 + tanh(ρ)) / 2
     where ρ = sharpness · (θ - θ₀) / π
     
     Parameters
@@ -471,18 +471,44 @@ def hbond_angular_factor(cos_angle: float, p: PFDParams) -> Tuple[float, float]:
         
     Returns
     -------
-    tuple of (float, float)
-        (f, df/d(cos_angle)) - the angular factor and its derivative.
+    tuple of (float, float, float)
+        (g, dg/d(cos), d²g/d(cos)²) - angular factor and its first two derivatives.
+        
+    Notes
+    -----
+    Changed from original: now returns 3 values instead of 2.
+    The second derivative is needed for correct Hessian calculations.
     """
     if abs(cos_angle) >= 1.0 - 1e-10:
-        return 0.0, 0.0
+        return 0.0, 0.0, 0.0
+    
     theta = np.arccos(cos_angle)
     rho = p.hbond_sharpness * (theta - p.hbond_angle_param * PI / 2.0) / PI
+    
     tanh_rho = np.tanh(rho)
-    f = p.hbond_strength * (1.0 + tanh_rho) / 2.0
+    sech2_rho = 1.0 - tanh_rho**2
+    
+    # Function value
+    g = p.hbond_strength * (1.0 + tanh_rho) / 2.0
+    
+    # Chain rule intermediates
     sin_theta = np.sqrt(1.0 - cos_angle**2)
-    df = p.hbond_strength * p.hbond_sharpness / (2.0 * PI) * (1.0 - tanh_rho**2) * (-1.0 / sin_theta)
-    return f, df
+    dtheta_dcos = -1.0 / sin_theta
+    d2theta_dcos2 = -cos_angle / (sin_theta**3)
+    drho_dtheta = p.hbond_sharpness / PI
+    
+    # Derivatives of g w.r.t. rho
+    dg_drho = p.hbond_strength * sech2_rho / 2.0
+    d2g_drho2 = -p.hbond_strength * tanh_rho * sech2_rho
+    
+    # First derivative: dg/d(cos)
+    dg = dg_drho * drho_dtheta * dtheta_dcos
+    
+    # Second derivative: d²g/d(cos)²
+    d2g = (d2g_drho2 * (drho_dtheta * dtheta_dcos)**2 + 
+           dg_drho * drho_dtheta * d2theta_dcos2)
+    
+    return g, dg, d2g
 
 
 def identify_hbond_pattern(z_i: int, z_j: int, z_k: int, hbond_atoms: set) -> Tuple[str, int, int, int]:

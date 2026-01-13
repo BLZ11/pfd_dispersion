@@ -193,37 +193,12 @@ def compute_hbond_hessian(n, z, coords, ehomo, alpha, pair_e, pair_d1, pair_d2, 
     
     where E_XY is the X-Y pair dispersion and g(θ) is an angular switching function.
     
-    The Hessian has three types of contributions:
+    The Hessian has four contributions:
+    1. g · ∂²E_XY/∂x²  (scaled pair Hessian)
+    2. E_XY · (∂²g/∂cos²) · (∂cos/∂x)⊗(∂cos/∂x)  (angular 2nd derivative)
+    3. E_XY · (∂g/∂cos) · (∂²cos/∂x²)  (cosine 2nd derivative)  
+    4. Cross terms between pair force and angular gradient
     
-    1. **Pair Hessian scaled by g(θ)**: The original X-Y Hessian multiplied by g
-    
-    2. **Cross term (force × angle gradient)**: Mixed derivatives from
-       ∂E_XY/∂r · ∂g/∂θ · ∂θ/∂x
-    
-    3. **Angle Hessian term**: From E_XY · ∂g/∂θ · ∂²θ/∂x² and
-       E_XY · ∂²g/∂θ² · (∂θ/∂x)²
-    
-    Parameters
-    ----------
-    n : int
-        Number of atoms.
-    z : np.ndarray
-        Atomic numbers.
-    coords : np.ndarray
-        Coordinates in Bohr, shape (3, n).
-    ehomo : np.ndarray
-        HOMO energies (not used, kept for API consistency).
-    alpha : np.ndarray
-        Polarizabilities (not used, kept for API consistency).
-    pair_e : np.ndarray
-        Two-body pair energies from compute_2body_hessian.
-    pair_d1 : np.ndarray
-        First derivative factors (ff = -dE/dr/r) from compute_2body_hessian.
-    pair_d2 : np.ndarray
-        Second derivative factors (hf) from compute_2body_hessian.
-    p : PFDParams, optional
-        Model parameters.
-        
     Returns
     -------
     hess : np.ndarray
@@ -232,67 +207,149 @@ def compute_hbond_hessian(n, z, coords, ehomo, alpha, pair_e, pair_d1, pair_d2, 
         Forces, shape (3, n).
     energy : float
         H-bond correction energy in Hartree.
-        
-    Notes
-    -----
-    The implementation reuses pair_e, pair_d1, pair_d2 from the two-body
-    calculation to avoid redundant computation. The angular derivatives
-    ∂cos/∂x are computed from the law of cosines via compute_cosine_derivatives.
-    
-    Special handling for selenium (z=34): the H-bond correction is reduced
-    by a factor of 2 for Se-containing systems.
     """
     forces, hess, energy = np.zeros((3, n)), np.zeros((3, 3, n)), 0.0
     
     for i, j, k in iter_triplets(n, z):
         h_vtx, _, a1_rel, a2_rel = identify_hbond_pattern(z[i], z[j], z[k], HBOND_ATOMS)
-        if h_vtx is None: continue
+        if h_vtx is None:
+            continue
         
-        idx = {0:i, 1:j, 2:k}; a1, a2 = idx[a1_rel], idx[a2_rel]
+        idx = {0: i, 1: j, 2: k}
+        a1, a2 = idx[a1_rel], idx[a2_rel]
+        
         tri = compute_triangle_geometry(coords, i, j, k)
         dc = compute_cosine_derivatives(tri)
+        d2cos = compute_cosine_second_derivatives(tri, dc)
         
-        if h_vtx == 'i': cos_h, dcos_r, acc_vec, acc_r_inv = tri.cos_i, (dc.dcos_i_drij, dc.dcos_i_drik, dc.dcos_i_drjk), tri.vec_jk, tri.r_jk_inv
-        elif h_vtx == 'j': cos_h, dcos_r, acc_vec, acc_r_inv = tri.cos_j, (dc.dcos_j_drij, dc.dcos_j_drik, dc.dcos_j_drjk), tri.vec_ik, tri.r_ik_inv
-        else: cos_h, dcos_r, acc_vec, acc_r_inv = tri.cos_k, (dc.dcos_k_drij, dc.dcos_k_drik, dc.dcos_k_drjk), tri.vec_ij, tri.r_ij_inv
+        # Identify angle at hydrogen and acceptor-acceptor geometry
+        if h_vtx == 'i':
+            cos_h = tri.cos_i
+            dcos_drij, dcos_drik, dcos_drjk = dc.dcos_i_drij, dc.dcos_i_drik, dc.dcos_i_drjk
+            acc_vec, acc_r_inv = tri.vec_jk, tri.r_jk_inv
+            acc_pair = (j, k)
+            d2c_rij_rij = d2cos['d2cos_i_drij_drij']
+            d2c_rij_rik = d2cos['d2cos_i_drij_drik']
+            d2c_rij_rjk = d2cos['d2cos_i_drij_drjk']
+            d2c_rik_rik = d2cos['d2cos_i_drik_drik']
+            d2c_rik_rjk = d2cos['d2cos_i_drik_drjk']
+            d2c_rjk_rjk = d2cos['d2cos_i_drjk_drjk']
+        elif h_vtx == 'j':
+            cos_h = tri.cos_j
+            dcos_drij, dcos_drik, dcos_drjk = dc.dcos_j_drij, dc.dcos_j_drik, dc.dcos_j_drjk
+            acc_vec, acc_r_inv = tri.vec_ik, tri.r_ik_inv
+            acc_pair = (i, k)
+            d2c_rij_rij = d2cos['d2cos_j_drij_drij']
+            d2c_rij_rik = d2cos['d2cos_j_drij_drik']
+            d2c_rij_rjk = d2cos['d2cos_j_drij_drjk']
+            d2c_rik_rik = d2cos['d2cos_j_drik_drik']
+            d2c_rik_rjk = d2cos['d2cos_j_drik_drjk']
+            d2c_rjk_rjk = d2cos['d2cos_j_drjk_drjk']
+        else:
+            cos_h = tri.cos_k
+            dcos_drij, dcos_drik, dcos_drjk = dc.dcos_k_drij, dc.dcos_k_drik, dc.dcos_k_drjk
+            acc_vec, acc_r_inv = tri.vec_ij, tri.r_ij_inv
+            acc_pair = (i, j)
+            d2c_rij_rij = d2cos['d2cos_k_drij_drij']
+            d2c_rij_rik = d2cos['d2cos_k_drij_drik']
+            d2c_rij_rjk = d2cos['d2cos_k_drij_drjk']
+            d2c_rik_rik = d2cos['d2cos_k_drik_drik']
+            d2c_rik_rjk = d2cos['d2cos_k_drik_drjk']
+            d2c_rjk_rjk = d2cos['d2cos_k_drjk_drjk']
         
         lo, hi = (a1, a2) if a1 < a2 else (a2, a1)
         pe, ff, hf = pair_e[lo, hi], pair_d1[lo, hi], pair_d2[lo, hi]
-        if abs(cos_h) >= 1.0 - 1e-10: continue
         
-        hb_f, hb_df = hbond_angular_factor(cos_h, p)
-        if z[a1] == 34 or z[a2] == 34: hb_f, hb_df = hb_f/2.0, hb_df/2.0
-        energy += pe * hb_f
+        if abs(cos_h) >= 1.0 - 1e-10:
+            continue
+        
+        # Get angular factor with BOTH first and second derivatives
+        hb_g, hb_dg, hb_d2g = hbond_angular_factor(cos_h, p)
+        
+        if z[a1] == 34 or z[a2] == 34:
+            hb_g, hb_dg, hb_d2g = hb_g/2.0, hb_dg/2.0, hb_d2g/2.0
+        
+        energy += pe * hb_g
         
         # Cartesian derivatives of cos(θ_H)
-        dcos_xi = tri.vec_ij*tri.r_ij_inv*dcos_r[0] + tri.vec_ik*tri.r_ik_inv*dcos_r[1]
-        dcos_xj = -tri.vec_ij*tri.r_ij_inv*dcos_r[0] + tri.vec_jk*tri.r_jk_inv*dcos_r[2]
-        dcos_xk = -tri.vec_ik*tri.r_ik_inv*dcos_r[1] - tri.vec_jk*tri.r_jk_inv*dcos_r[2]
+        dcos_xi = tri.vec_ij*tri.r_ij_inv*dcos_drij + tri.vec_ik*tri.r_ik_inv*dcos_drik
+        dcos_xj = -tri.vec_ij*tri.r_ij_inv*dcos_drij + tri.vec_jk*tri.r_jk_inv*dcos_drjk
+        dcos_xk = -tri.vec_ik*tri.r_ik_inv*dcos_drik - tri.vec_jk*tri.r_jk_inv*dcos_drjk
         
-        # Forces: gradient contributions
+        # Forces
         if h_vtx == 'i':
-            forces[:, j] -= hb_f*ff*acc_vec + pe*hb_df*dcos_xj
-            forces[:, k] -= -hb_f*ff*acc_vec + pe*hb_df*dcos_xk
-            forces[:, i] -= pe*hb_df*dcos_xi
+            forces[:, j] -= hb_g*ff*acc_vec + pe*hb_dg*dcos_xj
+            forces[:, k] -= -hb_g*ff*acc_vec + pe*hb_dg*dcos_xk
+            forces[:, i] -= pe*hb_dg*dcos_xi
         elif h_vtx == 'j':
-            forces[:, i] -= hb_f*ff*acc_vec + pe*hb_df*dcos_xi
-            forces[:, k] -= -hb_f*ff*acc_vec + pe*hb_df*dcos_xk
-            forces[:, j] -= pe*hb_df*dcos_xj
+            forces[:, i] -= hb_g*ff*acc_vec + pe*hb_dg*dcos_xi
+            forces[:, k] -= -hb_g*ff*acc_vec + pe*hb_dg*dcos_xk
+            forces[:, j] -= pe*hb_dg*dcos_xj
         else:
-            forces[:, i] -= hb_f*ff*acc_vec + pe*hb_df*dcos_xi
-            forces[:, j] -= -hb_f*ff*acc_vec + pe*hb_df*dcos_xj
-            forces[:, k] -= pe*hb_df*dcos_xk
+            forces[:, i] -= hb_g*ff*acc_vec + pe*hb_dg*dcos_xi
+            forces[:, j] -= -hb_g*ff*acc_vec + pe*hb_dg*dcos_xj
+            forces[:, k] -= pe*hb_dg*dcos_xk
         
-        # Hessian: angular term (∂g/∂θ)·(∂θ/∂x)⊗(∂θ/∂x)
-        for m, dcos_x in [(i, dcos_xi), (j, dcos_xj), (k, dcos_xk)]:
-            hess[:, :, m] += pe * hb_df * np.outer(dcos_x, dcos_x)
+        # ===== HESSIAN TERMS =====
         
-        # Hessian: scaled pair Hessian on acceptor atoms
-        acc_pair = (j,k) if h_vtx=='i' else ((i,k) if h_vtx=='j' else (i,j))
+        # Term 1: g · ∂²E_XY/∂x² (scaled pair Hessian on acceptors)
+        # Note: ff = -dE/r, and diagonal term in 2-body is -(r_inv*dE) = +ff
         for a in range(3):
             for b in range(3):
-                h_ab = -acc_vec[a]*acc_vec[b]*hf*hb_f + (acc_r_inv*ff*hb_f if a==b else 0)
-                hess[a,b,acc_pair[0]] += h_ab; hess[a,b,acc_pair[1]] += h_ab
+                h_ab = -acc_vec[a]*acc_vec[b]*hf + (ff if a == b else 0.0)
+                hess[a, b, acc_pair[0]] += hb_g * h_ab
+                hess[a, b, acc_pair[1]] += hb_g * h_ab
+        
+        # Term 2: E_XY · (∂²g/∂cos²) · (∂cos/∂x)⊗(∂cos/∂x)
+        # NOTE: Using hb_d2g (second derivative), not hb_dg!
+        for m, dcos_xm in [(i, dcos_xi), (j, dcos_xj), (k, dcos_xk)]:
+            hess[:, :, m] += pe * hb_d2g * np.outer(dcos_xm, dcos_xm)
+        
+        # Term 3: E_XY · (∂g/∂cos) · (∂²cos/∂x²)
+        u_ij = tri.vec_ij * tri.r_ij_inv
+        u_ik = tri.vec_ik * tri.r_ik_inv
+        u_jk = tri.vec_jk * tri.r_jk_inv
+        I3 = np.eye(3)
+        P_ij = (I3 - np.outer(u_ij, u_ij)) * tri.r_ij_inv
+        P_ik = (I3 - np.outer(u_ik, u_ik)) * tri.r_ik_inv
+        P_jk = (I3 - np.outer(u_jk, u_jk)) * tri.r_jk_inv
+        
+        # ∂²cos/∂x_i² (atom i connects to j via r_ij, to k via r_ik)
+        d2cos_xi_xi = (np.outer(u_ij, u_ij) * d2c_rij_rij +
+                       np.outer(u_ik, u_ik) * d2c_rik_rik +
+                       (np.outer(u_ij, u_ik) + np.outer(u_ik, u_ij)) * d2c_rij_rik +
+                       P_ij * dcos_drij + P_ik * dcos_drik)
+        
+        # ∂²cos/∂x_j² (atom j connects to i via -r_ij, to k via r_jk)
+        d2cos_xj_xj = (np.outer(u_ij, u_ij) * d2c_rij_rij +
+                       np.outer(u_jk, u_jk) * d2c_rjk_rjk -
+                       (np.outer(u_ij, u_jk) + np.outer(u_jk, u_ij)) * d2c_rij_rjk +
+                       P_ij * dcos_drij + P_jk * dcos_drjk)
+        
+        # ∂²cos/∂x_k² (atom k connects to i via -r_ik, to j via -r_jk)
+        d2cos_xk_xk = (np.outer(u_ik, u_ik) * d2c_rik_rik +
+                       np.outer(u_jk, u_jk) * d2c_rjk_rjk +
+                       (np.outer(u_ik, u_jk) + np.outer(u_jk, u_ik)) * d2c_rik_rjk +
+                       P_ik * dcos_drik + P_jk * dcos_drjk)
+        
+        hess[:, :, i] += pe * hb_dg * d2cos_xi_xi
+        hess[:, :, j] += pe * hb_dg * d2cos_xj_xj
+        hess[:, :, k] += pe * hb_dg * d2cos_xk_xk
+        
+        # Term 4: Cross terms 2·(∂g/∂cos)·(∂cos/∂x)·(∂E_XY/∂x) on acceptors
+        dE_acc0 = ff * acc_vec
+        dE_acc1 = -ff * acc_vec
+        
+        if h_vtx == 'i':
+            dcos_acc0, dcos_acc1 = dcos_xj, dcos_xk
+        elif h_vtx == 'j':
+            dcos_acc0, dcos_acc1 = dcos_xi, dcos_xk
+        else:
+            dcos_acc0, dcos_acc1 = dcos_xi, dcos_xj
+        
+        hess[:, :, acc_pair[0]] += hb_dg * (np.outer(dcos_acc0, dE_acc0) + np.outer(dE_acc0, dcos_acc0))
+        hess[:, :, acc_pair[1]] += hb_dg * (np.outer(dcos_acc1, dE_acc1) + np.outer(dE_acc1, dcos_acc1))
+    
     return hess, forces, energy
 
 

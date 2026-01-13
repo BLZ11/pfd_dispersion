@@ -345,7 +345,7 @@ def compute_hbond_gradient(num_atoms: int, z: np.ndarray, coords: np.ndarray,
         pe, ff = pair_e[lo, hi], pair_ff[lo, hi]
         
         # Angular correction factor and its derivative
-        hb_f, hb_df = hbond_angular_factor(cos_h, p)
+        hb_f, hb_df, _ = hbond_angular_factor(cos_h, p)
         if z[acc1] == 34 or z[acc2] == 34:  # Selenium reduction
             hb_f, hb_df = hb_f / 2.0, hb_df / 2.0
         

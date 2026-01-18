@@ -479,9 +479,10 @@ def hbond_angular_factor(cos_angle: float, p: PFDParams) -> Tuple[float, float, 
     Changed from original: now returns 3 values instead of 2.
     The second derivative is needed for correct Hessian calculations.
     """
-    if abs(cos_angle) >= 1.0 - 1e-10:
-        return 0.0, 0.0, 0.0
+    # Clamp cos_angle to valid range
+    cos_angle = np.clip(cos_angle, -1.0, 1.0)
     
+    # Compute theta and function value
     theta = np.arccos(cos_angle)
     rho = p.hbond_sharpness * (theta - p.hbond_angle_param * PI / 2.0) / PI
     
@@ -491,8 +492,13 @@ def hbond_angular_factor(cos_angle: float, p: PFDParams) -> Tuple[float, float, 
     # Function value
     g = p.hbond_strength * (1.0 + tanh_rho) / 2.0
     
+    # Check for singularity in derivatives (sin_theta ≈ 0)
+    sin_theta_sq = 1.0 - cos_angle**2
+    if sin_theta_sq < 1e-20:
+        return g, 0.0, 0.0
+    
     # Chain rule intermediates
-    sin_theta = np.sqrt(1.0 - cos_angle**2)
+    sin_theta = np.sqrt(sin_theta_sq)
     dtheta_dcos = -1.0 / sin_theta
     d2theta_dcos2 = -cos_angle / (sin_theta**3)
     drho_dtheta = p.hbond_sharpness / PI

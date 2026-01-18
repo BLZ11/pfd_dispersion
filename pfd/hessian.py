@@ -260,9 +260,6 @@ def compute_hbond_hessian(n, z, coords, ehomo, alpha, pair_e, pair_d1, pair_d2, 
         lo, hi = (a1, a2) if a1 < a2 else (a2, a1)
         pe, ff, hf = pair_e[lo, hi], pair_d1[lo, hi], pair_d2[lo, hi]
         
-        if abs(cos_h) >= 1.0 - 1e-10:
-            continue
-        
         # Get angular factor with BOTH first and second derivatives
         hb_g, hb_dg, hb_d2g = hbond_angular_factor(cos_h, p)
         
